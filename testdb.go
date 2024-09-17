@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"sync"
 
 	"github.com/peterldowns/pgtestdb/internal/once"
 	"github.com/peterldowns/pgtestdb/internal/sessionlock"
@@ -461,6 +462,8 @@ func ensureTemplate(
 	return nil
 }
 
+var testMtx sync.Mutex //nolint:gochecknoglobals
+
 // createInstance creates a new test database instance by cloning a template.
 func createInstance(
 	ctx context.Context,
@@ -468,11 +471,13 @@ func createInstance(
 	template templateState,
 ) (*Config, error) {
 	testConf := template.conf
+	testMtx.Lock()
 	testConf.Database = fmt.Sprintf(
 		"testdb_tpl_%s_inst_%s",
 		template.hash,
 		randomID(),
 	)
+	testMtx.Unlock()
 	query := fmt.Sprintf(
 		`CREATE DATABASE "%s" WITH TEMPLATE "%s" OWNER "%s"`,
 		testConf.Database,
